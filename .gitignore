@@ -1,0 +1,30 @@
+# EIDE build output and downloaded device packs
+EIDE/build/
+EIDE/bin/
+EIDE/obj/
+EIDE/out/
+EIDE/.cmsis/
+EIDE/.pack/
+EIDE/.codegraph/
+EIDE/.remember/
+EIDE/.workbuddy/
+EIDE/.eide/log/
+EIDE/.eide.usr.ctx.json
+
+# Keil and compiler-generated files
+*.o
+*.d
+*.axf
+*.hex
+*.s19
+*.map
+*.lst
+*.lnp
+*.uvoptx
+*.uvguix.*
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
