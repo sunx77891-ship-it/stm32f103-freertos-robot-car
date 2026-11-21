@@ -1,0 +1,169 @@
+# AGENTS.md
+
+STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agent 的**操作约束**，不是教程。
+原理讲解、硬件采购、学习路线见《STM32_FreeRTOS_机器人底盘_中文项目手册》。
+
+**改动前必读第 8 节「已知缺陷」和第 9 节「硬规则」。事实一律以源码为准，不以注释和 README 为准。**
+
+---
+
+## 1. 源码布局
+
+| 路径 | 职责 |
+|---|---|
+| `EIDE/RCT6_2motocar_PIDbymatlab.code-workspace` | **唯一工程入口** |
+| `RCT6_2motocar_PIDbymatlab/` | CubeMX 生成层：`Core/Src`（main / freertos / tim / usart / gpio）、`Drivers`（HAL + CMSIS）、`Middlewares`（FreeRTOS） |
+| `EIDE/Ctrl/` | 速度环、位置环、航向环、角速度环、矩形路径接口 |
+| `EIDE/MotorDrive/` | PWM 输出、方向控制、蜂鸣器、LED |
+| `EIDE/IMU/` | USART3 IMU 帧解析 + USART1 命令接收 |
+| `EIDE/Key/` | 按键消抖与按下事件 |
+| `EIDE/OLED/` | SSD1306 软件 I2C 显示 |
+| `EIDE/YawID/` | 航向模型 M 序列辨识实验 |
+| `EIDE/*.m` `EIDE/*.slx` | MATLAB 辨识与 PID 整定脚本（离线，非构建依赖） |
+| `EIDE/.eide/` | `eide.yml` 工程配置、`env.ini`、`files.options.yml` |
+| `Mmethods/` | 电机 M 序列辨识，独立实验代码，主工程不参与编译 |
+| `motocontrl/` | **早期废弃代码，不要引用、不要修改** |
+
+`RCT6_2motocar_PIDbymatlab/MDK-ARM/*.uvprojx` 是旧 Keil 工程，与当前源码关联不完整，**不要用它构建**。
+
+---
+
+## 2. 构建与烧录
+
+全部通过 VS Code 的 EIDE 扩展（`cl.eide`）完成。**仓库里没有 Makefile 和 CMakeLists.txt，也没有 CLI 构建脚本。**
+
+| 操作 | 方式 |
+|---|---|
+| 构建 | `Ctrl+Shift+B`，或 F1 → `EIDE: Build` |
+| 烧录 | F1 → `EIDE: Upload to Device`，或运行 task `flash` |
+| 构建 + 烧录 | task `build and flash` |
+| 重新构建 | task `rebuild` |
+| 清理 | task `clean` |
+| 调试 | F5（cortex-debug + J-Link） |
+
+- 工具链：**Arm Compiler 5 (AC5)**，`armcc` / `armasm` / `armlink`。AC5 不随仓库分发，需单独安装并让 EIDE 找到 `armcc.exe`（本机参考路径 `F:\arm_kile\ARM\ARMCC\`）
+- 器件包：`STM32F1xx_DFP 2.3.0`，首次打开时 EIDE 会提示下载
+- 编译选项：C99、`-O3`、`one-elf-section-per-function`、`--diag_suppress=1 --diag_suppress=1295`、宏 `STM32F10X_HD`
+- 产物：`EIDE/build/RCT6_2motocar_PIDbymatlab/`，含 `.axf` / `.hex` / `.s19` / `.map` / `.sct`
+- 链接脚本 `.sct` 由 EIDE 自动生成，**不要手写或提交**
+
+> 禁止 `cmake`、`make`、`ninja`。禁止为了「更现代」而引入 CMake/GCC 工程 —— 会破坏 AC5 特有语法与 pragma。
+
+---
+
+## 3. 硬件映射（以宏定义和 `gpio.c` 为准）
+
+| 外设 | 引脚 | 说明 |
+|---|---|---|
+| TIM1 CH1 / CH2 | PA8 / PA9 | 电机 B IN1 / IN2，20 kHz PWM |
+| TIM1 CH3 / CH4 | PA10 / PA11 | 电机 A IN1 / IN2，20 kHz PWM |
+| TIM2 CH1 / CH2 | PA0 / PA1 | 编码器 1，TI12 模式 |
+| TIM3 CH1 / CH2 | PA6 / PA7 | 编码器 2，TI12 模式 |
+| USART1 TX / RX | PB6 / PB7 | 115200-8N1，已 Remap，接 PC（命令 + CSV） |
+| USART3 TX / RX | PB10 / PB11 | 115200，**IMU 输入帧**，PB11 接模块 TX |
+| USART2 | PA2 / PA3 | 已初始化，主流程未使用 |
+| OLED SCL | **PB4** | 软件 I2C，开漏 |
+| OLED SDA | **PB5** | 软件 I2C，开漏 |
+| 按键 K1~K4 | PC13 / PC14 / PC0 / PC1 | 上拉输入，低电平按下 |
+| 按键 K5 / K6 | PC2 / PC3 | 代码中已禁用 |
+| LED1~LED5 | PC6 / PB15 / PB14 / PB13 / PB12 | 高电平点亮 |
+| 蜂鸣器 | PC15 | 低电平响 |
+| TIM6 | — | HAL 时基（刻意避开 SysTick） |
+
+> ⚠️ `EIDE/OLED/oled_i2c.h` 的**注释**写「PB5=SCL、PB4=SDA」，与实际宏定义相反。接线和改代码都以 `OLED_SCL_PIN = GPIO_PIN_4`、`OLED_SDA_PIN = GPIO_PIN_5` 为准。
+> 时钟：HSE 8 MHz → PLL×9 → 72 MHz；APB1 36 MHz（定时器 72 MHz）、APB2 72 MHz、Flash latency 2；TIM1 分频 0 / 周期 3599 → 20 kHz。
+
+---
+
+## 4. FreeRTOS 任务
+
+| 任务 | 优先级 | 栈 | 周期 | 作用 |
+|---|---|---|---|---|
+| `defaultTask` | Normal | 256 | 10 ms 快环 + 50 ms 慢环 | 外设初始化、速度/角速度内环、位置/航向外环、路径状态机 |
+| `oledTask` | Low | 256 | 200 ms | OLED 刷新，并通过 USART1 输出 yaw |
+| `keyTask` | Low | 128 | `osDelay(10)`（软件延时，有漂移） | 按键扫描、串口命令、路径状态机触发 |
+
+- 实建 **3 个任务**（README 和旧文档写「2 个」是错的）
+- Tick 1000 Hz，`configMAX_PRIORITIES = 7`，`heap_4` 共 20480 字节，Idle 任务静态分配
+- 快环用 `vTaskDelayUntil`，慢环由快环计数分频（`CTRL_SLOW_MS / CTRL_FAST_MS`）
+- 同步机制：**只有一个二值信号量**，无队列、无互斥锁，控制器状态靠全局变量 + 临界区传递 —— 这是主要技术债，新增并发访问必须沿用现有临界区风格，不要擅自引入无保护的全局读写
+
+---
+
+## 5. 串口协议
+
+### IMU 帧（USART3，逐字节状态机）
+
+```text
+0x5A  TYPE  L  H  SUM
+```
+
+- `TYPE = 0xAA` → 角速度：`wz = raw / 32768 × 2000`（°/s）
+- `TYPE = 0xBB` → 航向角：`yaw = raw / 32768 × 180`（°）
+- `raw = (int16_t)((H << 8) | L)`；`SUM` 为前 4 字节累加取低 8 位
+- 模块不是 MPU6050，**不走 I2C，不要去写 I2C 驱动**
+
+### 命令（USART1，ASCII 行命令，`\r\n` 结尾）
+
+`K1` 前进 / `K2` 后退 / `K3` 停止 / `K4` 启动或取消矩形路径 / `K5` 解析器支持但主逻辑未用
+
+### 数据输出（USART1）
+
+正常运行：每 200 ms 输出 `yaw` 单值。辨识实验另用两种 CSV：
+`sample,time_ms,ccr,speed_a_count,speed_b_count` 和 `sample,time_ms,diff_ccr,yaw_x10,wz_x10`
+
+---
+
+## 6. 控制结构
+
+```text
+航向外环 50 ms：Yaw 误差 → 目标角速度（直行有 ±3° 死区）
+角速度内环 10 ms：Wz 误差 → 左右轮速度差（增量式 PI）
+位置外环 50 ms：位置误差 → 基础速度（TURN 模式锁位置、限速 20）
+速度内环 10 ms：轮速误差 → PWM CCR（斜坡 + 前馈 + 积分抗饱和）
+```
+
+关键参数（`EIDE/Ctrl/Ctrl.c`）：`SPD_KP 5.0 / SPD_KI 8.0 / KFF 60.0`、`YAW_KP 5.0 / YAW_KD 0.2`、`WZ_KP 2.0 / WZ_KI 19.0`、`POS_KP 8.0 / POS_KI 0.2 / POS_KD 0.5`。
+速度单位是**「编码器脉冲 / 10 ms」**，不是 RPM —— 改参数时不要按 RPM 换算。
+
+路径状态机（`freertos.c`）：`RECT_PATH_IDLE → SIDE → BRAKE → TURN → AFTER_TURN`，每边 `RECT_SIDE_PULSES 20000`，减速点 1500 / 500 脉冲，转向 `RECT_CLOCKWISE_ANGLE 90.0f`（本工程正角度 = 顺时针）。
+
+---
+
+## 7. 代码风格
+
+- `EIDE/.clang-format`：基于 Microsoft，4 空格缩进，大括号 Linux 风格，不排序 includes，不限列宽
+- CubeMX 生成的 `.c` 只在 `/* USER CODE BEGIN */` 与 `/* USER CODE END */` 之间写自定义代码
+- 新增 C 代码必须能被 **AC5** 编译（C99，无 GCC 扩展、无 `__attribute__((...))` 随意用法）
+
+---
+
+## 8. 已知缺陷（改动时不要复制同类写法）
+
+1. **OLED 缓冲区溢出**：`char line[17]` 配 `sprintf(line, "P:%+6ld Tp:%+5ld", ...)`，第三行会越界 → 改 `char line[32]` + `snprintf`
+2. **周期漂移**：`Key_ScanTask` 用 `osDelay(10)` → 应改 `vTaskDelayUntil`
+3. **无失效保护**：IMU 没有超时检测、USART1 命令没有超时停车、`K3` 只是软件逻辑不是硬件急停
+4. **DMA 效率**：USART 每收 1 字节就重启一次 DMA → 应改循环 DMA + IDLE 中断 + 环形缓冲
+5. **并发模型**：全局变量 + 临界区为主，仅 1 个二值信号量 → 新增功能需自己保证一致性
+6. **极性注释不可信**：`Mmethods/m_methods.c` 的注释与 `MotorDrive.c` 的极性描述不一致 → 实测轮子方向和编码器符号为准
+
+---
+
+## 9. 硬规则
+
+**不要做：**
+
+- 不要运行 `cmake` / `make`，不要新建 CMakeLists.txt / Makefile
+- 不要改控制周期（10 ms / 50 ms）、FreeRTOS 堆大小、TIM6 时基 —— 会让已整定的 PID 参数全部失效
+- 不要相信引脚和极性的**注释**，一律以 `gpio.c` 和 `oled_i2c.h` 宏定义为准
+- 不要给 IMU 写 I2C 驱动，不要在 UART 上按 MPU6050 寄存器协议解析
+- 不要让固件编译依赖 MATLAB，`.m` 脚本只做离线整定
+- 不要动 `motocontrl/` 和 `MDK-ARM/` 下的旧工程
+- 不要引入需要动态内存分配的大块结构（堆只有 20 KB）
+
+**应该做：**
+
+- 控制逻辑改 `EIDE/Ctrl/`，调度与状态机改 `Core/Src/freertos.c`，外设初始化改 `Core/Src/{tim,usart,gpio}.c`
+- 新增任务一律 `vTaskDelayUntil` 固定周期，栈 ≥ 128 words 并按实测余量给
+- 扩展串口协议时加帧头 + 版本 + 长度 + 序号 + CRC16，兼容 `K1~K5` 现有文本命令
+- 改完必须确认 AC5 可编译；涉及引脚/时钟的改动要在说明里写清验证方法（如「架空轮子、先接单电机」）
