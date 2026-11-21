@@ -104,7 +104,6 @@ targets:
         - ../RCT6_2motocar_PIDbymatlab/Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3
         - ../RCT6_2motocar_PIDbymatlab/Drivers/CMSIS/Device/ST/STM32F1xx/Include
         - ../RCT6_2motocar_PIDbymatlab/Drivers/CMSIS/Include
-        - .cmsis/include
         - ../RCT6_2motocar_PIDbymatlab/MDK-ARM/RTE/_RCT6_2motocar_PIDbymatlab
       libList: []
     excludeList: []
