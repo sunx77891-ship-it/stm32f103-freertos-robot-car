@@ -34,23 +34,31 @@ python docs/sync_skill.py --check
 - 不要把 `EIDE/.pack/`、`EIDE/build/` 之类产物放进本目录（已在 `.gitignore` 排除）
 - 本仓库上游**没有项目级 LICENSE**：这些文档是对该仓库的分析与自己写的流程，可以随本仓库版本管理，但不要把上游源码当作自己的原创作品对外发布
 
-## 备份与推送（当前未闭环）
+## 备份与推送（进行中）
 
-本地已有 7 个提交（`a33df53` 之后），**全部只在本地**，因为 `origin` 指向的是上游作者仓库：
+`a33df53` 之后本地已有 10 个提交。`origin` 指向上游作者仓库，**没有写权限，也不该往那推**；个人远端已配好，等 fork 建好后一条命令即可：
 
 ```bash
 git remote -v
 # origin  https://github.com/wokaka209/stm32f103-freertos-robot-car.git
+# mine    https://github.com/sunx77891-ship-it/stm32f103-freertos-robot-car.git
 ```
 
-直接 `git push origin main` 会被拒（无写权限），也不应该往上推。要让提交可留存的两种做法：
-
-1. **Fork 后改 remote（推荐）**：在 GitHub fork 一份 → `git remote add mine https://github.com/<你的账号>/stm32f103-freertos-robot-car.git` → `git push mine main`。
-2. **只在本地留档**：把仓库整体复制/打包到备份盘，或用 `git bundle`：
+1. **Fork 上游**（2026-11-21 选定此路线）：打开 <https://github.com/wokaka209/stm32f103-freertos-robot-car/fork> 建一份到自己的账号，仓库名保持 `stm32f103-freertos-robot-car`（`mine` 已按此地址配好；若改名，先 `git remote set-url mine <新地址>`）。
+2. **首次推送**：
 
    ```bash
-   git bundle create ../car-$(date +%Y%m%d).bundle --all
+   git push -u mine main
    ```
 
-在此之前，任何「已推送/已备份」的说法都不成立；换机或误删目录会丢掉全部文档与配置改动（`EIDE/.pack/`、`.cmsis/`、`build/` 不在版本控制里，需重装/重建）。
+   凭证由 Git Credential Manager 提供（本机已登录 `sunx77891-ship-it`）；若弹出浏览器登录或 2FA，按提示完成即可。
+3. **确认落地**：`git ls-remote mine` 能看到 `refs/heads/main` 指向 `d3c7275` 一类的新提交，才算「已推送」。
+
+本地兜底已存在：`../car-20261121.bundle`（1.3 MB，`--all` 全历史，`git bundle verify` 通过）。要恢复：
+
+```bash
+git clone ../car-20261121.bundle car-restore
+```
+
+**在 `git ls-remote mine` 成功之前，任何「已推送/已备份到远端」的说法都不成立**；换机或误删目录会丢掉全部文档与配置改动（`EIDE/.pack/`、`.cmsis/`、`build/` 不在版本控制里，需重装/重建）。
 
