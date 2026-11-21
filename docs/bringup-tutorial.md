@@ -548,10 +548,48 @@ IMU 帧格式：
 - 目录结构与手册第七节的仓库目录说明一致。
 - 能定位 `EIDE/RCT6_2motocar_PIDbymatlab.code-workspace`。
 
+**版本锁定：怎样才算「严格复现核对提交」（2026-11-21 补齐）**
+
+只执行 `git clone` 不算复现 —— 克隆到的是上游当时的 HEAD，可能早已不是 `a33df53`。要声称复现核对提交，必须显式固定版本，并单独处理构建必需补丁。
+
+1. 克隆后先看落在哪个提交，再确认核对提交在历史里：
+
+   ```bash
+   git log --oneline -1
+   git merge-base --is-ancestor a33df5363db73ece9d1ba13bfd834484612e7157 HEAD && echo "核对提交在历史中"
+   ```
+
+2. 不要直接在长期工作目录里 `git checkout a33df53`（会丢掉后续提交）。用 `worktree` 拉一个独立副本：
+
+   ```bash
+   git worktree add ../car-a33df53 a33df5363db73ece9d1ba13bfd834484612e7157
+   ```
+
+3. 在副本里打**构建必需补丁**。`a33df53` 的 `eide.yml` 缺 `IMU`、`MotorDrive` 两条包含目录，不补会在 `freertos.c` 报 `cannot open source input file "Gyro.h"`，补上后接着报 `Periph.h`：
+
+   ```bash
+   git -C ../car-a33df53 checkout 428fa6a -- EIDE/.eide/eide.yml
+   ```
+
+   该提交只改 `eide.yml` 的 `incList`（2 行），所以打完补丁后 `git -C ../car-a33df53 diff a33df53` 应只剩这 2 行。若还多出别的差异，说明工作目录不干净，先查清楚再构建。
+
+4. 用副本里的 `EIDE/RCT6_2motocar_PIDbymatlab.code-workspace` 构建，产物体积应与 3.3「通过判据与基线」一致（ROM 25.07 KB / RAM 25.21 KB）。
+
+5. 用完清理：
+
+   ```bash
+   git worktree remove ../car-a33df53
+   ```
+
+**本机实际状态（2026-11-21）**
+
+- HEAD 为 `3962cdb`，比核对提交多 7 个提交：`428fa6a`（构建必需，incList）+ 6 个文档与上传器提交。之后又有文档提交，总数以 `git rev-list --count a33df53..HEAD` 为准。
+- 所以本机的准确说法是「`a33df53` + `428fa6a` 的 incList 补丁」，**不是**「严格复现 `a33df53`」。`AGENTS.md` §10.1 把后者列为红线，因为它会在排障时把「上游本来就缺包含目录」误判成环境问题。
+
 **需补充**
 
-- 手册没有给出克隆后核对实际提交号、切换到核对提交或处理新版差异的步骤。
-- 若教程编写后仓库发生变化，需要补充版本锁定操作，才能声称严格复现核对提交。
+- 手册没有给出克隆后核对实际提交号、切换到核对提交或处理新版差异的步骤（本节已按上述可执行步骤补齐）。
+- 上游仓库没有 tag / release，只有一个 `main` 分支；核对提交只能靠 commit hash 固定，无法用版本号引用。
 
 ---
 
@@ -603,6 +641,8 @@ IMU 帧格式：
 **需补充**
 
 - 手册没有提供各个核心源文件之间的详细调用索引；“第一周学习任务”列出了需要人工阅读和画图的文件。
+- **本节有一条验收是运行时状态，仓库里无法留证**：「当前窗口标题指向 `RCT6_2motocar_PIDbymatlab.code-workspace`」只存在于编辑器里，没有对应文件。可核查的间接证据只有两条：①`EIDE/.vscode/tasks.json` 中的任务以 `EIDE/` 为工作目录；②构建日志的源文件路径形如 `.\..\RCT6_2motocar_PIDbymatlab\Core\Src\main.c`，说明构建确实从 `EIDE/` 工程发起，而不是从 MDK 旧工程或单个文件。
+- 因此本项只能记为「已人工确认」，**不要写成「已验证」**。需要留档时补一张 VS Code 标题栏截图，与本机记录放在一起；换机重做时同样只有截图能作为证据。
 
 ---
 
@@ -665,9 +705,22 @@ IMU 帧格式：
 - 产物齐全：`.axf` 893 KB、`.hex` 71 KB、`.s19` 76 KB，均在 `EIDE/build/RCT6_2motocar_PIDbymatlab/`。
 - 结论：AC5（5.06u5）+ DFP 2.3.0 + 核对提交源码可以正常构建；固件只有 25 KB，远低于 32 KB，即使日后换到评估版授权也不会被代码量卡住。
 
+**通过判据与基线（2026-11-21 定）**
+
+- **判定口径：`0 error` 即通过，warning 只记录、不计失败。** 本机长期存在 2 条已知 warning，都是原工程写法问题，不是环境问题：
+
+  | 位置 | 警告 | 原因 | 是否必须修 |
+  |---|---|---|---|
+  | `RCT6_2motocar_PIDbymatlab/Core/Src/main.c:102` | `#188-D: enumerated type mixed with another type` | `HAL_GPIO_WritePin` 传字面量 `1`，而形参是 `GPIO_PinState` 枚举 | 否；改 `GPIO_PIN_SET` 即消除 |
+  | `EIDE/OLED/oled.c:121` | `#177-D: function "OLED_WriteData" was declared but never referenced` | 静态函数保留未用（死代码） | 否；属清理项，不影响功能 |
+
+- **体积基线**：`Code=23252 RO-data=2172 RW-data=244 ZI-data=25572`；map 汇总 ROM 25,668 B（25.07 KB）、RAM 25,816 B（25.21 KB / 48 KB = 52.5%）。可复现时这几个数应逐位一致；若偏差超过 ±1 KB，先查是否漏了包含目录、是否误加了源文件，而不是先怀疑编译器。
+- **产物指纹**：`.hex` 的 md5 为 `91020b66c95218558c48d54f0e950c0c`（AC5 5.06u5 + DFP 2.3.0 + 当前源码，2026-11-21 实测；同一工具链与源码下重建可复现）。`.axf` 内含调试信息与路径，**每次构建的 md5 都会变**，只能用来确认「文件存在」，不能用来判断一致性。
+- **`.cmsis/include` 空引用已清理**：`eide.yml` 原先有一条指向 `EIDE/.cmsis/include` 的包含目录，但该目录从未生成过（`.cmsis/` 被 `.gitignore` 排除，EIDE 3.27.2 在 AC5 工程里不创建它）。实测把它从 `incDirs` 去掉后重建，`.hex` md5 与原产物完全相同，故确认无依赖后删除。若日后 EIDE 重装器件包时自动补回该行，属正常行为，不必反复删。
+
 **需补充**
 
-- 手册没有给出本次构建应有的错误数量、警告数量、固件大小上限或逐条排错说明。
+- 手册没有给出本次构建应有的错误数量、警告数量、固件大小上限或逐条排错说明。上面的「通过判据与基线」是本机自定口径，**不是手册原文**；换机或升级 AC5/DFP 后要重新取基线，不能直接套用。
 - 若实际仓库版本与核对提交不同，构建差异的判定标准未给出。
 - **仓库自带的 `EIDE/.eide/eide.yml` 漏了两条包含目录**：`incList` 只有 `.`、Key、OLED、Ctrl、YawID，缺 `IMU` 与 `MotorDrive`。首次构建会在 `freertos.c` 报 `Error: #5: cannot open source input file "Gyro.h"`，补上之后还会接着报 `Periph.h`。处理办法：EIDE 面板「C/C++ 属性 → 包含目录」加上这两条，或直接改 `eide.yml` 的 `incList`。本机实测补完即构建通过。
 - 构建失败时 EIDE 可能弹「无法找到编译器 arm-none-eabi-gcc，需要安装吗」，这条提示会误导：本工程用的是 AC5，日志 `[TOOL]` 行已经打印 `ARM Compiler 5.06 update 5`，真正的错误要往下翻 `unify_builder.log` 里的 `Error: #5`。

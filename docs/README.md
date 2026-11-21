@@ -33,3 +33,24 @@ python docs/sync_skill.py --check
 - 不要直接改 `~/.workbuddy/skills/...` 下的文件 —— 下次同步会被覆盖，改动就丢了
 - 不要把 `EIDE/.pack/`、`EIDE/build/` 之类产物放进本目录（已在 `.gitignore` 排除）
 - 本仓库上游**没有项目级 LICENSE**：这些文档是对该仓库的分析与自己写的流程，可以随本仓库版本管理，但不要把上游源码当作自己的原创作品对外发布
+
+## 备份与推送（当前未闭环）
+
+本地已有 7 个提交（`a33df53` 之后），**全部只在本地**，因为 `origin` 指向的是上游作者仓库：
+
+```bash
+git remote -v
+# origin  https://github.com/wokaka209/stm32f103-freertos-robot-car.git
+```
+
+直接 `git push origin main` 会被拒（无写权限），也不应该往上推。要让提交可留存的两种做法：
+
+1. **Fork 后改 remote（推荐）**：在 GitHub fork 一份 → `git remote add mine https://github.com/<你的账号>/stm32f103-freertos-robot-car.git` → `git push mine main`。
+2. **只在本地留档**：把仓库整体复制/打包到备份盘，或用 `git bundle`：
+
+   ```bash
+   git bundle create ../car-$(date +%Y%m%d).bundle --all
+   ```
+
+在此之前，任何「已推送/已备份」的说法都不成立；换机或误删目录会丢掉全部文档与配置改动（`EIDE/.pack/`、`.cmsis/`、`build/` 不在版本控制里，需重装/重建）。
+

@@ -60,6 +60,9 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 
 - Flash 余量充裕（远低于 AC5 评估版 32 KB 上限，换授权也不会被代码量卡住）
 - **RAM 已用一半是真正的瓶颈** —— 新增缓冲区、队列、任务栈前先按这个基线算余量，堆只有 20 KB
+- **通过判据**：`0 error` 即通过；2 条已知 warning（`Core/Src/main.c:102` 枚举与整型混用、`OLED/oled.c:121` 静态函数 `OLED_WriteData` 未引用）不计失败，也不是环境问题
+- **产物指纹**：`.hex` md5 `91020b66c95218558c48d54f0e950c0c`（AC5 5.06u5 + DFP 2.3.0 + 当前源码）。`.axf` 含调试信息，md5 每次构建都变，**只能确认存在、不能判断一致**
+- `incList` 原有的 `.cmsis/include` 已移除（该目录从不生成，去掉后 `.hex` 字节一致，见 §11 坑 9）
 
 ---
 
@@ -190,7 +193,7 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 |---|---|---|
 | 0 | 版本与采购边界 | 编码器是 A/B 两相；IMU 确认输出 `5A AA` + `5A BB`、115200；OLED 是 I2C `0x3C`；驱动是 A4950（否则先改代码）。知道仓库无 LICENSE |
 | 1 | 工具链 | `armcc --version` = `5.06`；EIDE `Configure Toolchain` 显示 ✔；DFP 2.3.0 能选到 `STM32F103RC`。**编译通过才算过，不是「装好了」就算** |
-| 2 | 首次构建 | `EIDE/build/RCT6_2motocar_PIDbymatlab/` 出 `.axf` / `.hex` |
+| 2 | 首次构建 | `EIDE/build/RCT6_2motocar_PIDbymatlab/` 出 `.axf` / `.hex`，且编译 **0 error**（warning 仅记录） |
 | 3 | 电源（**不接电机**） | 12 V / 5 V / 3.3 V 都量过、无短路、共地 |
 | 4 | 烧录（**不接电机**） | OLED 显 `System Ready`、蜂鸣三声、能暂停与单步 |
 | 5 | USART1 命令 | 115200-8-N-1 + **行尾 `\r\n`**；`K1` / `K2` / `K3` 有可观察响应 |
@@ -213,7 +216,7 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 - IMU 帧协议不匹配却继续调 PID（应先改 `EIDE/IMU/Gyro.c`）
 - 转向方向反了却不查 `RECT_CLOCKWISE_ANGLE`（`90.0f` ↔ `-90.0f`）
 - 工具链缺失就改去跑 CMake / Makefile
-- 只 clone 了仓库就声称「严格复现核对提交 `a33df53`」
+- 只 clone 了仓库就声称「严格复现核对提交 `a33df53`」—— 复现步骤见 `docs/skill/SKILL.md` 阶段 2（`worktree` + `428fa6a` 的 incList 补丁）；截至 2026-11-21 本机 HEAD 已领先核对提交 7 个提交，准确说法是「`a33df53` + `428fa6a` 补丁」
 
 急停改造方向（**均未实现，禁止说成已有能力**）：A4950 的 EN 脚串硬件急停开关；`K3` 改 EXTI 高优先级中断；USART1 命令 **>200 ms 无更新即刹车**。
 
@@ -256,3 +259,4 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 6. `EIDE/.pack/`、`EIDE/.cmsis/`、`EIDE/build/` 被 `.gitignore` 排除 → 换机器后 DFP 要重装；`.pack` 本身是 zip，可直接解到 `.pack/Keil/STM32F1xx_DFP.2.3.0/`，与 `eide.yml` 的 `packDir` 对齐。
 7. 未接电机时发 `K1` 车轮不转是**正常的**，不要误判为串口失败 —— 用 OLED 模式变化或 200 ms 的 `yaw` 输出确认命令已收到。
 8. xpack OpenOCD 的脚本在包内 `openocd/scripts`（不是 `scripts/`），EIDE 只传 `-f interface/stlink.cfg -f target/stm32f1x.cfg`，**不要再手加 `transport select`**：openocd 0.12 会自动选 `swd (dapdirect)` 并打印 `DEPRECATED` 警告，是警告不是错误。本机实测（2026-11-21）：`STLINK V2J37S7`、`SWD DPIDR 0x1ba01477`、`Cortex-M3 r1p1`、target voltage 3.22 V。若单独用 `-f interface/stlink.cfg` 而不给 target，`init` 会报 `Error: Unsupported transport` —— 那是缺 target 的正常表现。
+9. `eide.yml` 的 `incList` 曾挂着 `.cmsis/include`，而 `EIDE/.cmsis/` **从未生成**（该目录被 `.gitignore` 排除，EIDE 3.27.2 在 AC5 工程里不创建）。空引用不会报错，但会让人误以为有 CMSIS 头目录。验证无依赖的方法：把 `builder.params` 的 `incDirs` 里该条去掉后重跑 `unify_builder.exe -p ... --rebuild`，`.hex` md5 不变即可删除。已在 `HEAD` 删除；若 EIDE 重装器件包时自动补回，不必反复删。
