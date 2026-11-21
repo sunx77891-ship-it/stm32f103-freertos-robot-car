@@ -216,7 +216,7 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 - IMU 帧协议不匹配却继续调 PID（应先改 `EIDE/IMU/Gyro.c`）
 - 转向方向反了却不查 `RECT_CLOCKWISE_ANGLE`（`90.0f` ↔ `-90.0f`）
 - 工具链缺失就改去跑 CMake / Makefile
-- 只 clone 了仓库就声称「严格复现核对提交 `a33df53`」—— 复现步骤见 `docs/skill/SKILL.md` 阶段 2（`worktree` + `428fa6a` 的 incList 补丁）；截至 2026-11-21 本机 HEAD 已领先核对提交 7 个提交，准确说法是「`a33df53` + `428fa6a` 补丁」
+- 只 clone 了仓库就声称「严格复现核对提交 `a33df53`」—— 复现步骤见 `docs/skill/SKILL.md` 阶段 2（`worktree` + `428fa6a` 的 incList 补丁）；本机 HEAD 已领先核对提交 10 个提交（2026-11-21，`git rev-list --count a33df53..HEAD`），准确说法是「`a33df53` + `428fa6a` 补丁」
 
 急停改造方向（**均未实现，禁止说成已有能力**）：A4950 的 EN 脚串硬件急停开关；`K3` 改 EXTI 高优先级中断；USART1 命令 **>200 ms 无更新即刹车**。
 

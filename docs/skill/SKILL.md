@@ -81,7 +81,7 @@ agent_created: true
 - 报 `cannot open source input file "Gyro.h"` / `Periph.h` → `eide.yml` 的 `incList` 缺 `EIDE/IMU`、`EIDE/MotorDrive`（`428fa6a` 已补）
 - 弹「找不到 arm-none-eabi-gcc」是误报，真错误在 `unify_builder.log` 的 `Error: #5`
 - 基线：`Code=23252 RO-data=2172 RW-data=244 ZI-data=25572`；ROM 25.1 KB（9.8%）、RAM 25.2 KB（**52.5%**，瓶颈）。偏差 >1 KB 先查包含目录与源文件清单
-- 严格复现核对提交：`git worktree add ../car-a33df53 a33df53` → `git -C ../car-a33df53 checkout 428fa6a -- EIDE/.eide/eide.yml` → 构建 → `git worktree remove ../car-a33df53`。**只 clone 不算复现**；截至 2026-11-21 本机 HEAD 已领先核对提交 7 个提交
+- 严格复现核对提交：`git worktree add ../car-a33df53 a33df53` → `git -C ../car-a33df53 checkout 428fa6a -- EIDE/.eide/eide.yml` → 构建 → `git worktree remove ../car-a33df53`。**只 clone 不算复现**；本机 HEAD 已领先核对提交 10 个提交（2026-11-21，以 `git rev-list --count a33df53..HEAD` 为准）
 - `.cmsis/include` 空引用已从 `incList` 移除（该目录从不生成；去掉后 `.hex` 字节一致）。EIDE 若自动补回，不必再删
 - 阶段 2 的「窗口/工作区指向」是运行时项，仓库无法留证，只能记「已人工确认」，不要写成「已验证」
 
