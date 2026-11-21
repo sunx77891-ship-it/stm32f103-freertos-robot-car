@@ -721,7 +721,7 @@ IMU 帧格式：
 **需补充**
 
 - 手册没有给出本次构建应有的错误数量、警告数量、固件大小上限或逐条排错说明。上面的「通过判据与基线」是本机自定口径，**不是手册原文**；换机或升级 AC5/DFP 后要重新取基线，不能直接套用。
-- 若实际仓库版本与核对提交不同，构建差异的判定标准未给出。
+- 若实际仓库版本与核对提交不同，构建差异的判定标准仍未给出：3.1 的版本锁定 + 本节的体积基线已解决「怎么固定版本」「正常值是多少」，剩下的是「换了版本后哪些差异可接受」——目前只能人工 `git diff a33df53 -- EIDE RCT6_2motocar_PIDbymatlab` 逐条看，没有阈值可套（例：多一个源文件导致 ROM 增大，属正常；同样的源码 ROM 变大，才是配置或工具链问题）。
 - **仓库自带的 `EIDE/.eide/eide.yml` 漏了两条包含目录**：`incList` 只有 `.`、Key、OLED、Ctrl、YawID，缺 `IMU` 与 `MotorDrive`。首次构建会在 `freertos.c` 报 `Error: #5: cannot open source input file "Gyro.h"`，补上之后还会接着报 `Periph.h`。处理办法：EIDE 面板「C/C++ 属性 → 包含目录」加上这两条，或直接改 `eide.yml` 的 `incList`。本机实测补完即构建通过。
 - 构建失败时 EIDE 可能弹「无法找到编译器 arm-none-eabi-gcc，需要安装吗」，这条提示会误导：本工程用的是 AC5，日志 `[TOOL]` 行已经打印 `ARM Compiler 5.06 update 5`，真正的错误要往下翻 `unify_builder.log` 里的 `Error: #5`。
 
