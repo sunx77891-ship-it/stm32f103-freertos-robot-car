@@ -171,6 +171,16 @@ targets:
       OpenOCD:
         baseAddr: "0x08000000"
         bin: ""
-        interface: cmsis-dap
+        interface: stlink
         target: stm32f1x
+      STLink:
+        address: "0x08000000"
+        bin: ""
+        elFile: "None"
+        optionBytes: .eide/rct6_2motocar_pidbymatlab.st.option.bytes.ini
+        otherCmds: ""
+        proType: SWD
+        resetMode: default
+        runAfterProgram: true
+        speed: 4000
     uploader: OpenOCD
