@@ -5,7 +5,8 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 - §1–§9：改代码的约束（布局、构建、引脚、任务、协议、控制、风格、缺陷、硬规则）
 - §10–§11：动硬件的闸门（上板顺序、安全红线）与本机环境、已踩过的坑
 - 原理、采购、学习路线：见《STM32_FreeRTOS_机器人底盘_中文项目手册》
-- 逐阶段执行细则（每步的目标/前置/验收/需补充）：见 skill `stm32-robot-car-bringup`
+- 逐阶段执行细则（每步的目标/前置/验收/需补充）：见 `docs/skill/SKILL.md`，同一份内容以 skill `stm32-robot-car-bringup` 形式被自动加载；教程全文在 `docs/bringup-tutorial.md`
+- 文档地图与同步方式：见 `docs/README.md`。**改 skill 只改 `docs/`，再跑 `python docs/sync_skill.py`**
 
 三份文件（本文件 / 手册 / skill）冲突时，**代码事实以本文件为准，上板顺序以 §10 为准**。
 
