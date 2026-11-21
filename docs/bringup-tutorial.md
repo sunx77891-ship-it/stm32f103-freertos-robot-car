@@ -501,7 +501,11 @@ IMU 帧格式：
 - 路径有效性已有可操作的检查界面（`Configure Toolchain` 显示 ✔ / ✗），但“✔ 之后仍编译失败”的具体报错仍需按 EIDE 的 OUTPUT 面板逐条判断，手册没有对应说明。
 - AC5 或 DFP 下载环节的失败，官方文档只覆盖安装位置与许可两类，其余需按实际报错排查。
 - DAPLink 对应的启动调试验收没有像 J-Link/ST-Link 那样单独写明：阶段四“暂停和单步”的验收只提到 J-Link/ST-Link，用 DAPLink 时要自行确认能否暂停、单步、复位。
-- 上传链路的额外依赖未在手册中说明：工程 `eide.yml` 默认是 `uploader: OpenOCD` + `interface: cmsis-dap`，而本机 EIDE 的 `~/.eide/tools` 是空的，即 **OpenOCD 尚未安装**；同时实物是 ST-Link V2，直接用 OpenOCD 时能否打开设备取决于 ST-Link 的 USB 驱动类型（ST 的驱动不是 WinUSB，这一条本机未验证）。到阶段四再定：让 EIDE 装 OpenOCD 并把接口改成 `stlink`，或改用 EIDE 的 `STLink` 上传器。
+- 上传链路的额外依赖未在手册中说明：工程 `eide.yml` 默认是 `uploader: OpenOCD` + `interface: cmsis-dap`，而实物是 ST-Link V2，**接口必须改成 `stlink`**。
+  - **2026-11-21 已定并落地，走 OpenOCD 路线**：xpack OpenOCD 0.12.0-7 装到 `D:\openocd\xpack-openocd-0.12.0-7`，VS Code 设置 `EIDE.OpenOCD.ExePath` 指向 `bin\openocd.exe`；`eide.yml` 改为 `uploader: OpenOCD` + `interface: stlink`。
+  - 原文「ST 的驱动不是 WinUSB，这一条本机未验证」的判断**被实测推翻**：ST-Link 的驱动服务就是 `WinUSB`（STSW-LINK009 v2.1.0.0，问题码 0），因此不需要 Zadig 替换驱动。
+  - 已用 EIDE 同款参数验证到目标识别：`STLINK V2J37S7`、`SWD DPIDR 0x1ba01477`、`Cortex-M3 r1p1`、target voltage 3.22 V。**实际烧录仍留到阶段四**，且必须先过阶段三的电压检查。
+  - `STLink` 上传器（`uploadConfigMap.STLink`）配置块保留作备用，但本机缺 `STM32_Programmer_CLI` / `ST-LINK_CLI`，暂不可用。
 
 ---
 

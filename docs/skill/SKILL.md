@@ -88,7 +88,7 @@ agent_created: true
 
 ### 阶段 4：烧录（不接电机）
 
-- `EIDE: Upload to Device` 或 task `flash`
+- `EIDE: Upload to Device` 或 task `flash`（上传器 OpenOCD + `interface: stlink`，openocd 路径见 `AGENTS.md` §11）
 - 观察四项：`System Ready`、蜂鸣三声、能暂停、能单步。任一缺失不进下一阶段
 
 ### 阶段 5：USART1
@@ -166,7 +166,7 @@ agent_created: true
 | 弹「找不到 arm-none-eabi-gcc」 | 是误报 | 看 `unify_builder.log` 的 `Error: #5` |
 | 编译报 license 类错误 | AC5 许可 | 用 MDK 自带 ARMCC，别用独立版 u7 |
 | 选不到 `STM32F103RC` | `EIDE/.pack/` 是否为空 | 重装 DFP 2.3.0，不换版本顶替 |
-| 串口发命令没反应 | 行尾 | 改 `\r\n`；再查 COM 口（CH340=COM3，别选蓝牙口） |
+| 串口发命令没反应 | 行尾 | 改 `\r\n`；再查 COM 口（CH340 当前为 COM6，**端口号会变，以设备管理器为准**；别选蓝牙 COM4/5/7/8） |
 | 车轮不转 | 是否接了电机 | 未接电机时属正常，用 OLED/`yaw` 输出验证 |
 | 转向方向相反 | `RECT_CLOCKWISE_ANGLE` | `90.0f` ↔ `-90.0f` |
 | IMU 数据不动 | 接线与协议 | TX→PB11、共地、115200、帧头 `0x5A`；不符先改 `Gyro.c` |

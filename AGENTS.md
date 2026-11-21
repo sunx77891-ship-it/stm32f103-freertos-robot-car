@@ -42,7 +42,7 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 | 操作 | 方式 |
 |---|---|
 | 构建 | `Ctrl+Shift+B`，或 F1 → `EIDE: Build` |
-| 烧录 | F1 → `EIDE: Upload to Device`，或运行 task `flash` |
+| 烧录 | F1 → `EIDE: Upload to Device`，或运行 task `flash`（上传器 **OpenOCD** + `interface: stlink`，openocd 位置见 §11） |
 | 构建 + 烧录 | task `build and flash` |
 | 重新构建 | task `rebuild` |
 | 清理 | task `clean` |
@@ -240,8 +240,10 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 | AC5 | `D:\keil5\ARM\ARMCC`（MDK Plus 5.24 自带，**u5 build 528**，已授权） |
 | DFP | `Keil.STM32F1xx_DFP` 2.3.0 → `EIDE/.pack/Keil/STM32F1xx_DFP.2.3.0` |
 | 下载器 | ST-Link V2（`VID_0483&PID_3748`），驱动 v2.1.0.0，问题码 0 |
-| 串口 | CH340 = `COM3`（COM4/5/7/8 是蓝牙虚拟口，**别选错**） |
+| 串口 | CH340 = `COM6`（2026-11-21 实测；2026-11-20 曾为 `COM3`。**端口号随插拔和 USB 口变动，一律以设备管理器为准**；COM4/5/7/8 是蓝牙虚拟口，**别选错**） |
 | 串口助手 | `ms-vscode.vscode-serial-monitor@0.13.1`，`lineEnding = \r\n`；中文界面里叫「串行监视器」，在面板视图里，不在终端列表 |
+| 上传/调试工具 | `D:\openocd\xpack-openocd-0.12.0-7`（xpack OpenOCD 0.12.0-7，`EIDE.OpenOCD.ExePath` 已指向 `bin\openocd.exe`）。ST-Link 驱动服务是 **WinUSB**，无需 Zadig；EIDE 的 `STLink` 上传器未启用（缺 `STM32_Programmer_CLI`） |
+| 调试扩展 | `marus25.cortex-debug@1.12.1`（含 3 个 mcu-debug 依赖）。`launch.json` 尚未生成，需在 EIDE 里点「生成调试器配置模板」 |
 | CubeMX | 6.18.1 已装，**只可查看 `.ioc`**，不得生成工程 |
 
 **坑（按踩到的顺序，全是本机实测）**
@@ -253,3 +255,4 @@ STM32F103RC + FreeRTOS 双轮差速底盘固件。本文件是给 AI 编码 agen
 5. `eclipse-cdt.serial-monitor` 没有行尾设置项（已核查源码），别用它。
 6. `EIDE/.pack/`、`EIDE/.cmsis/`、`EIDE/build/` 被 `.gitignore` 排除 → 换机器后 DFP 要重装；`.pack` 本身是 zip，可直接解到 `.pack/Keil/STM32F1xx_DFP.2.3.0/`，与 `eide.yml` 的 `packDir` 对齐。
 7. 未接电机时发 `K1` 车轮不转是**正常的**，不要误判为串口失败 —— 用 OLED 模式变化或 200 ms 的 `yaw` 输出确认命令已收到。
+8. xpack OpenOCD 的脚本在包内 `openocd/scripts`（不是 `scripts/`），EIDE 只传 `-f interface/stlink.cfg -f target/stm32f1x.cfg`，**不要再手加 `transport select`**：openocd 0.12 会自动选 `swd (dapdirect)` 并打印 `DEPRECATED` 警告，是警告不是错误。本机实测（2026-11-21）：`STLINK V2J37S7`、`SWD DPIDR 0x1ba01477`、`Cortex-M3 r1p1`、target voltage 3.22 V。若单独用 `-f interface/stlink.cfg` 而不给 target，`init` 会报 `Error: Unsupported transport` —— 那是缺 target 的正常表现。
