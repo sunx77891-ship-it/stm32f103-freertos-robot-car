@@ -90,6 +90,8 @@ targets:
         - STM32F10X_HD
       incList:
         - .
+        - IMU
+        - MotorDrive
         - Key
         - OLED
         - Ctrl
