@@ -23,6 +23,11 @@ PAIRS = [
 ]
 
 
+def normalized(path: Path) -> bytes:
+    """按行尾归一化读取，避免 Windows 编辑器存成 CRLF 时误报不一致。"""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def main() -> int:
     check_only = "--check" in sys.argv
     repo = Path(__file__).resolve().parent.parent
@@ -40,7 +45,7 @@ def main() -> int:
             print(f"[x] 缺源文件：{src_rel}")
             return 2
 
-        same = dst.is_file() and dst.read_bytes() == src.read_bytes()
+        same = dst.is_file() and normalized(dst) == normalized(src)
         if same:
             print(f"[=] 已一致：{dst_rel}")
             continue
